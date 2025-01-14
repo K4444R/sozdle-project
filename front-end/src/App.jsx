@@ -8,7 +8,9 @@ const App = () => {
   const [gameStatus, setGameStatus] = useState(null); // Статус игры (победа или поражение)
   const [wordToGuess, setWordToGuess] = useState('HELLO'); // Загаданное слово
   const [isOpen, setIsOpen] = useState(false); // Состояние для диалогового окна
-  const [attempts, setAttempts] = useState(1); // Счетчик попыток
+  const [attempts, setAttempts] = useState(1); // Счетчик попыток, начинаем с 1
+  const [letterStatus, setLetterStatus] = useState(Array(6).fill('').map(() => Array(5).fill(''))); // Статус букв (зеленый, желтый, серый)
+  const [keyStatus, setKeyStatus] = useState({}); // Статус клавиш (зеленый, желтый, серый)
 
   const keyboard = [
     'QWERTYUIOP',
@@ -20,6 +22,32 @@ const App = () => {
     if (key === 'Enter') {
       if (currentCol === 5) {
         const currentGuess = board[currentRow].join('');
+        const newLetterStatus = [...letterStatus];
+        const newKeyStatus = { ...keyStatus };
+
+        // Определяем статус каждой буквы
+        const guessStatus = currentGuess.split('').map((letter, index) => {
+          if (letter === wordToGuess[index]) {
+            newKeyStatus[letter] = '#6aaa64'; // Зеленый для правильной буквы
+            return 'green';
+          } else if (wordToGuess.includes(letter)) {
+            if (newKeyStatus[letter] !== '#6aaa64') {
+              newKeyStatus[letter] = '#c9b458'; // Желтый для буквы, которая есть, но не на правильной позиции
+            }
+            return 'yellow';
+          } else {
+            if (!newKeyStatus[letter]) {
+              newKeyStatus[letter] = '#787c7e'; // Серый для отсутствующей буквы
+            }
+            return 'gray';
+          }
+        });
+
+        // Обновляем статус букв
+        newLetterStatus[currentRow] = guessStatus;
+        setLetterStatus(newLetterStatus);
+        setKeyStatus(newKeyStatus);
+
         if (currentGuess === wordToGuess) {
           setGameStatus('won');
         } else if (currentRow === 5) {
@@ -27,7 +55,7 @@ const App = () => {
         } else {
           setCurrentRow((prevRow) => Math.min(prevRow + 1, 5));
           setCurrentCol(0);
-          setAttempts((prevAttempts) => prevAttempts + 1);
+          setAttempts((prevAttempts) => prevAttempts + 1); // Увеличиваем счетчик попыток
         }
       }
     } else if (key === 'Backspace' || key === '←') {
@@ -67,14 +95,16 @@ const App = () => {
     setCurrentRow(0);
     setCurrentCol(0);
     setGameStatus(null);
-    setAttempts(1); 
+    setAttempts(1); // Сброс счетчика попыток на 1
+    setLetterStatus(Array(6).fill('').map(() => Array(5).fill(''))); // Сброс статуса букв
+    setKeyStatus({}); // Сброс статуса клавиш
   };
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (gameStatus) {
         if (event.key === 'Enter') {
-          closeDialog(); 
+          closeDialog(); // Закрыть диалог и начать новую игру
         }
       } else {
         handleKeyPress(event.key);
@@ -102,7 +132,20 @@ const App = () => {
           {board.map((row, rowIndex) => (
             <div key={rowIndex} className="row">
               {row.map((cell, colIndex) => (
-                <div key={colIndex} className="cell">
+                <div
+                  key={colIndex}
+                  className="cell"
+                  style={{
+                    backgroundColor:
+                      letterStatus[rowIndex][colIndex] === 'green'
+                        ? '#6aaa64'
+                        : letterStatus[rowIndex][colIndex] === 'yellow'
+                        ? '#c9b458'
+                        : letterStatus[rowIndex][colIndex] === 'gray'
+                        ? '#787c7e'
+                        : 'white',
+                  }}
+                >
                   {cell}
                 </div>
               ))}
@@ -118,6 +161,9 @@ const App = () => {
                   key={key}
                   className={`key ${key === '>' ? 'large-key' : ''}`}
                   onClick={() => handleKeyPress(key === '>' ? 'Enter' : key === '<' ? '←' : key)}
+                  style={{
+                    backgroundColor: keyStatus[key] || 'white',
+                  }}
                 >
                   {key === '>' ? 'Enter' : key === '<' ? '←' : key}
                 </button>
@@ -143,3 +189,4 @@ const App = () => {
 };
 
 export default App;
+  
