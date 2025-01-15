@@ -97,7 +97,8 @@ body, html {
 }
 
 .key.large-key {
-  width: 80px; /* Увеличенная ширина для кнопки Enter */
+  width: 60px; /* Увеличенная ширина для кнопки Enter */
+  text-align: center;
 }
 
 .key:hover {
@@ -115,6 +116,7 @@ body, html {
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1000;
 }
 
 .dialog {
@@ -130,11 +132,13 @@ body, html {
 .dialog h2 {
   font-size: 1.5rem;
   margin-bottom: 10px;
+  color: black;
 }
 
 .dialog p {
   margin-bottom: 20px;
   font-size: 1rem;
+  color: black;
 }
 
 .dialog button {
@@ -157,7 +161,6 @@ body, html {
   color: black;
 }
 
-
 .attempts {
   margin-top: 20px;
   font-size: 16px;
@@ -165,10 +168,27 @@ body, html {
   color: black;
 }
 
-.dialog h2 {
-  color: black;
+/* Всплывающая нотификация */
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 1rem;
+  z-index: 1000;
+  animation: fadeOut 2s forwards;
+  text-align: center;
 }
 
-.dialog p {
-  color: black;
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }

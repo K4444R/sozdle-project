@@ -1,49 +1,94 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import './App.css';
 
 const App = () => {
-  const [board, setBoard] = useState(Array(6).fill('').map(() => Array(5).fill(''))); // Игровое поле 6x5
+  const [board, setBoard] = useState(Array(6).fill('').map(() => Array(5).fill('')));
   const [currentRow, setCurrentRow] = useState(0);
   const [currentCol, setCurrentCol] = useState(0);
-  const [gameStatus, setGameStatus] = useState(null); // Статус игры (победа или поражение)
-  const [wordToGuess, setWordToGuess] = useState('HELLO'); // Загаданное слово
-  const [isOpen, setIsOpen] = useState(false); // Состояние для диалогового окна
-  const [attempts, setAttempts] = useState(1); // Счетчик попыток, начинаем с 1
-  const [letterStatus, setLetterStatus] = useState(Array(6).fill('').map(() => Array(5).fill(''))); // Статус букв (зеленый, желтый, серый)
-  const [keyStatus, setKeyStatus] = useState({}); // Статус клавиш (зеленый, желтый, серый)
+  const [wordToGuess, setWordToGuess] = useState('');
+  const [notification, setNotification] = useState({ message: '', visible: false });
+  const [attempts, setAttempts] = useState(1);
+  const [letterStatus, setLetterStatus] = useState(Array(6).fill('').map(() => Array(5).fill('')));
+  const [keyStatus, setKeyStatus] = useState({});
+  const [gameStatus, setGameStatus] = useState(null);
 
-  const keyboard = [
-    'QWERTYUIOP',
-    'ASDFGHJKL',
-    '>ZXCVBNM<',
-  ];
+  const keyboard = ['QWERTYUIOP', 'ASDFGHJKL', '>ZXCVBNM<'];
 
-  const handleKeyPress = (key) => {
+  useEffect(() => {
+    const fetchWord = async () => {
+      try {
+        const response = await axios.get('http://localhost:3000/current');
+        setWordToGuess(response.data.message.split(': ')[1]);
+      } catch (error) {
+        console.error('Ошибка при получении слова:', error);
+      }
+    };
+    fetchWord();
+  }, []);
+
+  const showNotification = (message) => {
+    setNotification({ message, visible: true });
+    setTimeout(() => setNotification({ message: '', visible: false }), 2000);
+  };
+
+  const resetGame = async () => {
+    try {
+      await axios.get('http://localhost:3000/new_game'); // Запрос на сервер для старта новой игры
+      setBoard(Array(6).fill('').map(() => Array(5).fill('')));
+      setCurrentRow(0);
+      setCurrentCol(0);
+      setGameStatus(null);
+      setAttempts(1);
+      setLetterStatus(Array(6).fill('').map(() => Array(5).fill('')));
+      setKeyStatus({});
+      setWordToGuess('');
+      const response = await axios.get('http://localhost:3000/current');
+      setWordToGuess(response.data.message.split(': ')[1]);
+    } catch (error) {
+      console.error('Ошибка при запуске новой игры:', error);
+    }
+  };
+
+  const handleKeyPress = async (key) => {
     if (key === 'Enter') {
-      if (currentCol === 5) {
-        const currentGuess = board[currentRow].join('');
+      if (gameStatus) {
+        resetGame(); // Сбрасываем игру, если она завершена
+        return;
+      }
+
+      if (currentCol < 5) {
+        showNotification('Too short');
+        return;
+      }
+
+      const currentGuess = board[currentRow].join('');
+      try {
+        const response = await axios.get(`http://localhost:3000/?word=${currentGuess}`);
+        if (response.status === 404) {
+          showNotification('Word not found');
+          return;
+        }
+
         const newLetterStatus = [...letterStatus];
         const newKeyStatus = { ...keyStatus };
-
-        // Определяем статус каждой буквы
         const guessStatus = currentGuess.split('').map((letter, index) => {
           if (letter === wordToGuess[index]) {
-            newKeyStatus[letter] = '#6aaa64'; // Зеленый для правильной буквы
+            newKeyStatus[letter] = '#6aaa64';
             return 'green';
           } else if (wordToGuess.includes(letter)) {
             if (newKeyStatus[letter] !== '#6aaa64') {
-              newKeyStatus[letter] = '#c9b458'; // Желтый для буквы, которая есть, но не на правильной позиции
+              newKeyStatus[letter] = '#c9b458';
             }
             return 'yellow';
           } else {
             if (!newKeyStatus[letter]) {
-              newKeyStatus[letter] = '#787c7e'; // Серый для отсутствующей буквы
+              newKeyStatus[letter] = '#787c7e';
             }
             return 'gray';
           }
         });
 
-        // Обновляем статус букв
         newLetterStatus[currentRow] = guessStatus;
         setLetterStatus(newLetterStatus);
         setKeyStatus(newKeyStatus);
@@ -53,9 +98,15 @@ const App = () => {
         } else if (currentRow === 5) {
           setGameStatus('failed');
         } else {
-          setCurrentRow((prevRow) => Math.min(prevRow + 1, 5));
+          setCurrentRow((prev) => prev + 1);
           setCurrentCol(0);
-          setAttempts((prevAttempts) => prevAttempts + 1); // Увеличиваем счетчик попыток
+          setAttempts((prev) => prev + 1);
+        }
+      } catch (error) {
+        if (error.response && error.response.status === 404) {
+          showNotification('Word not found');
+        } else {
+          console.error('Ошибка при отправке слова:', error);
         }
       }
     } else if (key === 'Backspace' || key === '←') {
@@ -81,53 +132,25 @@ const App = () => {
     }
   };
 
-  const openDialog = () => {
-    setIsOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsOpen(false);
-    resetGame();
-  };
-
-  const resetGame = () => {
-    setBoard(Array(6).fill('').map(() => Array(5).fill('')));
-    setCurrentRow(0);
-    setCurrentCol(0);
-    setGameStatus(null);
-    setAttempts(1); // Сброс счетчика попыток на 1
-    setLetterStatus(Array(6).fill('').map(() => Array(5).fill(''))); // Сброс статуса букв
-    setKeyStatus({}); // Сброс статуса клавиш
-  };
-
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (gameStatus) {
-        if (event.key === 'Enter') {
-          closeDialog(); // Закрыть диалог и начать новую игру
-        }
-      } else {
-        handleKeyPress(event.key);
-      }
-    };
-
+    const handleKeyDown = (event) => handleKeyPress(event.key);
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [board, currentRow, currentCol, gameStatus]);
-
-  useEffect(() => {
-    if (gameStatus) {
-      openDialog();
-    }
-  }, [gameStatus]);
 
   return (
     <div className="background">
       <div className="app">
         <h1 className="title">Sozdle</h1>
 
+        {/* Всплывающая нотификация */}
+        {notification.visible && (
+          <div className="notification">
+            {notification.message}
+          </div>
+        )}
+
+        {/* Игровое поле */}
         <div className="board">
           {board.map((row, rowIndex) => (
             <div key={rowIndex} className="row">
@@ -153,6 +176,7 @@ const App = () => {
           ))}
         </div>
 
+        {/* Клавиатура */}
         <div className="keyboard">
           {keyboard.map((line, lineIndex) => (
             <div key={lineIndex} className="keyboard-line">
@@ -172,14 +196,15 @@ const App = () => {
           ))}
         </div>
 
-        {isOpen && (
+        {/* Окно результата */}
+        {gameStatus && (
           <div className="overlay">
             <div className="dialog">
               <h2>{gameStatus === 'won' ? 'You Won!' : 'You Failed!'}</h2>
-              {gameStatus === 'failed' && <p>Word: {wordToGuess}</p>}
-              {gameStatus === 'won' && <p>Attempts: {attempts}</p>} {/* Показываем attempts только при победе */}
-              <button onClick={closeDialog}>New Game</button>
-              <p className="small-text">or press Enter to play again</p>
+              {gameStatus === 'failed' && <p>The word was: {wordToGuess}</p>}
+              {gameStatus === 'won' && <p>Attempts: {attempts}</p>}
+              <button onClick={resetGame}>New Game</button>
+              <p className="small-text">Press Enter to continue</p>
             </div>
           </div>
         )}
@@ -189,4 +214,3 @@ const App = () => {
 };
 
 export default App;
-  
